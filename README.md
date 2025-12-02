@@ -78,8 +78,6 @@ All data are obtained programmatically in Python.
    - Use: map destination airport codes to coordinates for the weather API  
    - Site: https://ourairports.com/data/
 
-These citations can also be copied into the final report or slides to satisfy the “Citation of all data sources” requirement.
-
 ---
 
 ## Project Structure
@@ -149,12 +147,12 @@ The submitted `app.py` includes Amadeus **test** API key and secret at the top o
    * slider for **Price importance vs comfort**
 3. Click **Run single‑destination analysis**.
 4. Review:
-
+   
    * best month summary (month, estimated lowest fare, final score)
    * top 3 recommended months table
    * full monthly table
    * three visualizations (price vs comfort over time, decision scatter, month ranking)
-5. Optionally download the full results as a CSV file.
+6. Optionally download the full results as a CSV file.
 
 ### Multi‑destination comparison mode
 
