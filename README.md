@@ -36,7 +36,7 @@ For a chosen origin and one or more destinations, the app:
 1. Samples one‑way flight prices for each month in a future window (for example, the next 12 months).  
 2. Requests historical daily weather for each destination and month, then aggregates it to monthly statistics.  
 3. Computes three scores per month:
-   - **Price score** – lower prices → higher score  
+   - **Price score** – lower prices to higher score  
    - **Comfort score** – temperatures near an “ideal” range with less rain → higher score  
    - **Final score** – a weighted combination of price and comfort; the user sets the weight  
 4. Ranks the months and shows:
