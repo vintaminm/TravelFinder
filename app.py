@@ -18,10 +18,17 @@ DEFAULT_CURRENCY = "USD"
 
 
 # =============================================================================
-# FLIGHT FETCHER
+# FLIGHT & AIRPORT FETCHER (Amadeus)
 # =============================================================================
 
 class FlightFetcher:
+    """
+    Handles:
+    - Amadeus authentication
+    - Flight price lookup
+    - Airport coordinates lookup (via Amadeus Locations API)
+    """
+
     def __init__(self, api_key, api_secret, currency=DEFAULT_CURRENCY):
         self.api_key = api_key
         self.api_secret = api_secret
@@ -53,6 +60,8 @@ class FlightFetcher:
     def _ensure_token(self):
         if not self.token:
             raise RuntimeError("No Amadeus access token. Check your API keys.")
+
+    # ---------- Flight price (per day) ----------
 
     def get_price_one_day(self, origin, destination, date_str, max_results=5):
         """Lowest price for a given date."""
@@ -143,9 +152,42 @@ class FlightFetcher:
             )
         return pd.DataFrame(rows)
 
+    # ---------- Airport coordinates via Amadeus Locations API ----------
+
+    def get_airport_coordinates(self, iata_code: str):
+        """
+        Query Amadeus reference data to get airport latitude/longitude.
+        Uses: /v1/reference-data/locations?subType=AIRPORT&keyword=IATA
+        """
+        self._ensure_token()
+        url = "https://test.api.amadeus.com/v1/reference-data/locations"
+        headers = {"Authorization": f"Bearer {self.token}"}
+        params = {
+            "subType": "AIRPORT",
+            "keyword": iata_code,
+            "page[limit]": 5,
+        }
+        try:
+            resp = requests.get(url, headers=headers, params=params, timeout=15)
+            if resp.status_code != 200:
+                return None, None
+            data = resp.json().get("data", [])
+            # Prefer exact IATA match if present
+            for item in data:
+                if item.get("iataCode") == iata_code:
+                    geo = item.get("geoCode", {})
+                    return geo.get("latitude"), geo.get("longitude")
+            # Fallback: first result
+            if data:
+                geo = data[0].get("geoCode", {})
+                return geo.get("latitude"), geo.get("longitude")
+        except Exception:
+            pass
+        return None, None
+
 
 # =============================================================================
-# WEATHER FETCHER
+# WEATHER FETCHER (Open-Meteo Archive)
 # =============================================================================
 
 class WeatherFetcher:
@@ -172,32 +214,48 @@ class WeatherFetcher:
 
 
 # =============================================================================
-# MERGE FLIGHTS + WEATHER
+# MERGE FLIGHTS + WEATHER (NO CSV DATASET)
 # =============================================================================
 
 def add_weather_to_flights(df_prices):
+    """
+    Enrich monthly price table with weather statistics.
+    Coordinates are obtained via Amadeus Locations API (no static CSV).
+    """
     if df_prices is None or df_prices.empty:
         return df_prices
 
-    airports = pd.read_csv("https://ourairports.com/data/airports.csv")
-    airports = airports[airports["iata_code"].notnull()]
-    airports = airports[["iata_code", "latitude_deg", "longitude_deg"]]
-
-    df = df_prices.merge(airports, left_on="Destination", right_on="iata_code", how="left")
-    df.drop(columns=["iata_code"], inplace=True)
+    # Use Amadeus to get airport coordinates
+    ff = FlightFetcher(AMADEUS_API_KEY, AMADEUS_API_SECRET)
+    if not ff.token:
+        st.sidebar.error("Failed to fetch airport coordinates from Amadeus.")
+        return df_prices
 
     wf = WeatherFetcher()
     today = date.today()
     most_recent_year = today.year - 1
 
+    latitudes, longitudes = [], []
     avg_max_temps, avg_min_temps = [], []
     total_precips, avg_wind_speeds = [], []
     weather_types = []
 
-    for _, row in df.iterrows():
-        lat, lon, month = row["latitude_deg"], row["longitude_deg"], int(row["Month"])
+    coord_cache = {}  # cache per IATA code
 
-        if pd.isna(lat) or pd.isna(lon):
+    for _, row in df_prices.iterrows():
+        dest = row["Destination"]
+        month = int(row["Month"])
+
+        if dest in coord_cache:
+            lat, lon = coord_cache[dest]
+        else:
+            lat, lon = ff.get_airport_coordinates(dest)
+            coord_cache[dest] = (lat, lon)
+
+        latitudes.append(lat)
+        longitudes.append(lon)
+
+        if lat is None or lon is None:
             avg_max_temps.append(None)
             avg_min_temps.append(None)
             total_precips.append(None)
@@ -224,6 +282,9 @@ def add_weather_to_flights(df_prices):
 
         weather_types.append("historical")
 
+    df = df_prices.copy()
+    df["latitude"] = latitudes
+    df["longitude"] = longitudes
     df["avg_max_temp"] = avg_max_temps
     df["avg_min_temp"] = avg_min_temps
     df["total_precip"] = total_precips
