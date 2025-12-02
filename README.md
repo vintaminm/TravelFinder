@@ -190,6 +190,3 @@ To reproduce the project, running `streamlit run app.py` locally is sufficient.
 * Member 4 – documentation and presentation
 
 
-
-直接拿去交，不会看起来像你把 README 外包给一个唠叨的 AI。
-```
