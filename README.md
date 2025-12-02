@@ -178,15 +178,4 @@ To reproduce the project, running `streamlit run app.py` locally is sufficient.
 * Weather comfort scores are based on historical averages, not real‑time forecasts.
 * Only one‑way ticket prices are considered; hotel costs, trip length, and round‑trip fares are not included.
 
----
-
-## Team
-
-(Replace with your actual names and roles.)
-
-* Member 1 – flight data and Amadeus integration
-* Member 2 – weather data and scoring design
-* Member 3 – Streamlit UI and visualizations
-* Member 4 – documentation and presentation
-
 
